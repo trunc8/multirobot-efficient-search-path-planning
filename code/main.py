@@ -38,8 +38,8 @@ class Mespp:
 
   def start(self):
     # print(self.has_captured())
-    # self.plot()
-    self.plan()
+    self.plot()
+    # self.plan()
 
   def has_captured(self):
     '''
@@ -58,21 +58,16 @@ class Mespp:
 
     # To suppress gurobi optimize function's unnecessary output-
     with gp.Env() as env, gp.Model("planner", env=env) as m:
-      beliefs = m.addMVar((self.N+1,HORIZON+1), lb=0, ub=1, vtype=GRB.CONTINUOUS)
-      print(beliefs)
 
       presence = {}   # x variable in paper
       transition = {} # y variable in paper
-      # del_prime = self.g.neighborhood(self.searchers.initial_positions,
-      #                                 order=1)
       legal_V = {}
 
-      ## Adding design variables
+      ## Adding presence and transition design variables
       for t in range(0,HORIZON+1):
         legal_V[t] = self.g.neighborhood(self.searchers.initial_positions,
                                         order=t)
         print(legal_V)
-        # print(del_prime)
         presence[t] = {}
         transition[t] = {}
         
@@ -88,7 +83,6 @@ class Mespp:
                 transition[t][s][u][v] = m.addVar(vtype=GRB.BINARY, name=f'y_{u},{v}^{s},{t}')
             else:
               transition[t][s][u] = m.addVar(vtype=GRB.BINARY, name=f'y_{u},vg^{s},tau')
-        # break
       
       ## Adding constraints
       
@@ -101,8 +95,57 @@ class Mespp:
         # t=tau
         m.addConstr(gp.quicksum(transition[HORIZON][s][u] for u in 
                      legal_V[HORIZON][s]) == 1)
-      
-      
+      # For t>0
+      for t in range(1,HORIZON+1):
+        for s in range(self.searchers.M):
+          m.addConstrs(gp.quicksum(transition[t-1][s][u][v] for u in 
+                       # Taking Intersection of the two sets
+                       list( set(self.g.neighborhood(v, order=1)) & 
+                             set(legal_V[t-1][s]) )
+                       )
+                       == presence[t][s][v] for v in legal_V[t][s])
+          if t is not HORIZON:
+            m.addConstrs(gp.quicksum(transition[t][s][u][v] for v in 
+                         self.g.neighborhood(u, order=1))
+                         == presence[t][s][u] for u in legal_V[t][s])
+          else:
+            m.addConstrs(transition[t][s][u]
+                         == presence[t][s][u] for u in legal_V[t][s])
+
+      ## Defining belief and propogated belief design variables
+      # Belief starts from t=0 to HORIZON
+      beliefs = m.addMVar((self.N+1,HORIZON+1), lb=0, ub=1, vtype=GRB.CONTINUOUS, name='beta')
+      # Prop_belief starts from t=1 to HORIZON. Indexing this would be confusing
+      prop_beliefs = m.addMVar((self.N,HORIZON), lb=0, ub=1, vtype=GRB.CONTINUOUS, name='alpha')
+      print(beliefs)
+
+      ## Adding constraints
+      m.addConstr(beliefs[:,0] == self.searchers.belief)
+      for t in range(1,HORIZON+1):
+        # m.addConstr(gp.quicksum(self.target.motion_model[u,v]*beliefs[u+1,t-1] for u in range(self.N))
+        #              == prop_beliefs[v,t-1] for v in range(self.N))
+        m.addConstr(self.target.motion_model@beliefs[1:,t-1] == prop_beliefs[:,t-1])
+        # Due to weird indexing, at t=1 above eqn implies
+        # motion_model * belief at t=0 == prop_belief at t=1
+
+      ## Adding capture design variables and constraints
+      capture = m.addMVar((self.N,HORIZON), vtype=GRB.BINARY, name='psi')
+      for t in range(1,HORIZON+1):
+        m.addConstr(beliefs[1:,t] <= (np.ones(self.N) - capture[:,t-1]))
+        m.addConstr(beliefs[1:,t] <= prop_beliefs[:,t-1])
+        m.addConstr(beliefs[1:,t] <= (prop_beliefs[:,t-1] - capture[:,t-1]))
+
+      for t in range(0,HORIZON+1):
+        for v in range(self.N):
+        # for s in range(self.searchers.M):
+          valid_searchers = []
+          for s in range(self.searchers.M):
+            if v in legal_V[t][s]:
+              valid_searchers.append(s)
+          print(valid_searchers)
+          m.addConstr(sum(presence[t][s][v] for s in 
+                     valid_searchers) <= self.searchers.M*capture[v,t-1])
+
 
 
       m.setObjective(discount_series@beliefs[0,:], GRB.MAXIMIZE)
