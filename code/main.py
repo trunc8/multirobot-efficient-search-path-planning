@@ -7,6 +7,7 @@ from gurobipy import GRB
 import igraph as ig
 import numpy as np
 
+import os, sys
 
 class Target:
   def __init__(self):
@@ -26,6 +27,7 @@ class Searchers:
     self.belief = np.zeros(N+1)
     self.belief[1] = 1
 
+
 class Mespp:
   def __init__(self):
     '''
@@ -36,11 +38,13 @@ class Mespp:
     self.target = Target()
     self.searchers = Searchers()
 
+
   def start(self):
     # print(self.has_captured())
-    self.plot()
-    # self.plan()
+    self.plot(index=0)
+    self.plan()
 
+  
   def has_captured(self):
     '''
     Same vertex capture for the time being
@@ -48,6 +52,7 @@ class Mespp:
     The searcher declares "Captured!"
     '''
     return self.target.position in self.searchers.positions
+
 
   def plan(self):
     print("Planning routine in progress...")
@@ -142,6 +147,7 @@ class Mespp:
           for s in range(self.searchers.M):
             if v in legal_V[t][s]:
               valid_searchers.append(s)
+          ## Getting ERROR!
           print(valid_searchers)
           m.addConstr(sum(presence[t][s][v] for s in 
                      valid_searchers) <= self.searchers.M*capture[v,t-1])
@@ -156,8 +162,7 @@ class Mespp:
       #   print('%s %g' % (v.varName, v.x))
 
     
-
-  def plot(self):
+  def plot(self, index):
     self.g.vs["color"]="yellow"
     self.g.vs[self.target.position]["color"]="red"
     for idx in self.searchers.positions:
@@ -167,7 +172,9 @@ class Mespp:
     visual_style["vertex_size"] = 20
     visual_style["layout"] = self.g.layout("grid")
     visual_style["vertex_label"] = range(self.g.vcount())
-    ig.plot(self.g, **visual_style)
+    ig.plot(self.g,
+            target=os.path.join(sys.path[0], f'path_{index}.png'), 
+            **visual_style)
 
 
 if __name__ == '__main__':
