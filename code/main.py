@@ -8,43 +8,141 @@ import igraph as ig
 import numpy as np
 
 import os, sys
+import time
 
-class Target:
-  def __init__(self):
-    N = 100
-    self.position = 0
-    self.motion_model = np.eye(N) # Not being used yet
-
-class Searchers:
-  def __init__(self):
-    '''
-    Single searcher for the time being
-    '''
-    N = 100
-    self.M = 1
-    self.initial_positions = np.array([90])
-    self.positions = self.initial_positions.copy()
-    self.belief = np.zeros(N+1)
-    self.belief[1] = 1
+from helper import Helper
+from target import Target
+from searchers import Searchers
 
 
-class Mespp:
+class Mespp(Helper):
   def __init__(self):
     '''
-    Grid graphs for the time being
+    Initializing all objects and variables
+    HORIZON: Time horizon for joint path planning
+    N: Number of vertices
+    g: Grid graphs for the time being of side length SIDE
     '''
-    self.N = 100
-    self.g = ig.Graph.Lattice(dim=[10, 10], circular=False)
-    self.target = Target()
-    self.searchers = Searchers()
+    SIDE = 10
+    self.HORIZON = 10
+    self.N = SIDE*SIDE
+    self.g = ig.Graph.Lattice(dim=[SIDE, SIDE], circular=False)
+
+    # Creating required objects
+    self.target = Target(N=self.N)
+    self.searchers = Searchers(N=self.N, M=2)
+    self.m = gp.Model("planner")
+
+    # Initializing MILP design variables
+    self.presence = {}        # "x" variable in the paper
+    self.transition = {}      # "y" variable in the paper
+    self.legal_V = {}         # "V(s,t)" in the paper (not design variable)
+
+    self.beliefs = None       # "beta" variable in the paper
+    self.prop_beliefs = None  # "alpha" variable in the paper
+    self.capture = None       # "psi" variable in the paper
 
 
   def start(self):
+    print("\n---------------MESPP started----------------\n")
     # print(self.has_captured())
-    self.plot(index=0)
-    self.plan()
+    self.addMILPVariables()
 
-  
+    # print(self.m)
+    self.m.update()
+    # print("\nUpdated\n")
+    # print(self.m)
+    # Does updating model matter? #
+
+    self.addMILPConstraints()
+    self.setMILPObjective()
+    self.plan()
+    self.plot()
+    print("\n---------------Exiting----------------\n")
+
+
+  def addMILPVariables(self):
+    print("\n>> Adding MILP Variables...\n")
+    ## Adding presence and transition design variables
+    for t in range(self.HORIZON+1):
+      '''
+      Time instant 0 to HORIZON
+      '''
+      # Store a list of length of m in legal_V[t]
+      self.legal_V[t] = self.g.neighborhood(self.searchers.initial_positions,
+                                            order=t)
+      # print(self.legal_V)
+      self.presence[t] = {}
+      self.transition[t] = {}
+      
+      for s in range(self.searchers.M):
+        self.presence[t][s] = {}
+        self.transition[t][s] = {}
+
+        for v in self.legal_V[t][s]:
+          # x_v^{s,t}
+          self.presence[t][s][v] = self.m.addMVar((1,), vtype=GRB.BINARY, 
+                                                  name=f'x_{v}^{s},{t}')
+        for u in self.legal_V[t][s]:
+          self.transition[t][s][u] = {}
+          if t < self.HORIZON:
+            for v in self.g.neighborhood(u, order=1):
+              # y_{uv}^{s,t}
+              self.transition[t][s][u][v] = self.m.addMVar((1,), vtype=GRB.BINARY, 
+                                                           name=f'y_{u},{v}^{s},{t}')
+          elif t == self.HORIZON:
+            # y_{uv_g}^{s,tau}
+            self.transition[t][s][u] = self.m.addMVar((1,), vtype=GRB.BINARY, 
+                                                      name=f'y_{u},vg^{s},tau')
+          else:
+            print("EXCEPTION. Exiting...")
+            sys.exit(0)
+    
+    ## Defining belief and propagated belief design variables
+    
+    # Belief starts from t=0 to HORIZON
+    # Row is a vertex (or capture belief)
+    # Column is a time instant
+    self.beliefs = self.m.addMVar((self.N+1, self.HORIZON+1), 
+                                  lb=0, ub=1, 
+                                  vtype=GRB.CONTINUOUS, 
+                                  name='beta')
+    # Prop_belief matters from t=1 to HORIZON. First column is pointless
+    # but for convenience of indexing
+    self.prop_beliefs = self.m.addMVar((self.N, self.HORIZON+1), 
+                                       lb=0, ub=1, 
+                                       vtype=GRB.CONTINUOUS, 
+                                       name='alpha')
+    # Similar to prop_belief. First column is only for easier bookkeeping
+    self.capture = self.m.addMVar((self.N, self.HORIZON+1), 
+                                  vtype=GRB.BINARY, 
+                                  name='psi')
+
+    print("\n<< Finished adding MILP Variables\n")
+
+  def addMILPConstraints(self):
+    print("\n>> Adding MILP Constraints...\n")
+    start_time = time.time()
+
+    ## Adding constraints on presence and transition 
+    self.addTransitionConstraints()
+
+    print(time.time()-start_time)
+    
+    ## Adding constraints on beliefs
+    self.addBeliefConstraints()
+
+    end_time = time.time()
+    print(f"\n<< Finished adding MILP Constraints in {end_time-start_time}s\n")
+
+
+  def setMILPObjective(self):
+    DISCOUNT = 0.8
+    discount_series = np.array([DISCOUNT**t for t in range(self.HORIZON+1)])
+    # self.beliefs[0,:] --> Capture beliefs over all time instances
+    self.m.setObjective(discount_series@self.beliefs[0,:], GRB.MAXIMIZE)
+
+
   def has_captured(self):
     '''
     Same vertex capture for the time being
@@ -55,128 +153,46 @@ class Mespp:
 
 
   def plan(self):
-    print("Planning routine in progress...")
-
-    DISCOUNT = 1
-    HORIZON = 2
-    discount_series = np.array([DISCOUNT**t for t in range(HORIZON+1)])
-
-    # To suppress gurobi optimize function's unnecessary output-
-    with gp.Env() as env, gp.Model("planner", env=env) as m:
-
-      presence = {}   # x variable in paper
-      transition = {} # y variable in paper
-      legal_V = {}
-
-      ## Adding presence and transition design variables
-      for t in range(0,HORIZON+1):
-        legal_V[t] = self.g.neighborhood(self.searchers.initial_positions,
-                                        order=t)
-        print(legal_V)
-        presence[t] = {}
-        transition[t] = {}
-        
-        for s in range(self.searchers.M):
-          presence[t][s] = {}
-          transition[t][s] = {}
-          for v in legal_V[t][s]:
-            presence[t][s][v] = m.addVar(vtype=GRB.BINARY, name=f'x_{v}^{s},{t}')
-          for u in legal_V[t][s]:
-            transition[t][s][u] = {}
-            if t is not HORIZON:
-              for v in self.g.neighborhood(u, order=1):
-                transition[t][s][u][v] = m.addVar(vtype=GRB.BINARY, name=f'y_{u},{v}^{s},{t}')
-            else:
-              transition[t][s][u] = m.addVar(vtype=GRB.BINARY, name=f'y_{u},vg^{s},tau')
-      
-      ## Adding constraints
-      
-      for s in range(self.searchers.M):
-        # t=0
-        m.addConstrs(presence[0][s][v] == 1 for v in legal_V[0][s])
-        m.addConstrs(gp.quicksum(transition[0][s][u][v] for v in 
-                     self.g.neighborhood(u, order=1)) == 1 for u in 
-                     legal_V[0][s])
-        # t=tau
-        m.addConstr(gp.quicksum(transition[HORIZON][s][u] for u in 
-                     legal_V[HORIZON][s]) == 1)
-      # For t>0
-      for t in range(1,HORIZON+1):
-        for s in range(self.searchers.M):
-          m.addConstrs(gp.quicksum(transition[t-1][s][u][v] for u in 
-                       # Taking Intersection of the two sets
-                       list( set(self.g.neighborhood(v, order=1)) & 
-                             set(legal_V[t-1][s]) )
-                       )
-                       == presence[t][s][v] for v in legal_V[t][s])
-          if t is not HORIZON:
-            m.addConstrs(gp.quicksum(transition[t][s][u][v] for v in 
-                         self.g.neighborhood(u, order=1))
-                         == presence[t][s][u] for u in legal_V[t][s])
-          else:
-            m.addConstrs(transition[t][s][u]
-                         == presence[t][s][u] for u in legal_V[t][s])
-
-      ## Defining belief and propogated belief design variables
-      # Belief starts from t=0 to HORIZON
-      beliefs = m.addMVar((self.N+1,HORIZON+1), lb=0, ub=1, vtype=GRB.CONTINUOUS, name='beta')
-      # Prop_belief starts from t=1 to HORIZON. Indexing this would be confusing
-      prop_beliefs = m.addMVar((self.N,HORIZON), lb=0, ub=1, vtype=GRB.CONTINUOUS, name='alpha')
-      print(beliefs)
-
-      ## Adding constraints
-      m.addConstr(beliefs[:,0] == self.searchers.belief)
-      for t in range(1,HORIZON+1):
-        # m.addConstr(gp.quicksum(self.target.motion_model[u,v]*beliefs[u+1,t-1] for u in range(self.N))
-        #              == prop_beliefs[v,t-1] for v in range(self.N))
-        m.addConstr(self.target.motion_model@beliefs[1:,t-1] == prop_beliefs[:,t-1])
-        # Due to weird indexing, at t=1 above eqn implies
-        # motion_model * belief at t=0 == prop_belief at t=1
-
-      ## Adding capture design variables and constraints
-      capture = m.addMVar((self.N,HORIZON), vtype=GRB.BINARY, name='psi')
-      for t in range(1,HORIZON+1):
-        m.addConstr(beliefs[1:,t] <= (np.ones(self.N) - capture[:,t-1]))
-        m.addConstr(beliefs[1:,t] <= prop_beliefs[:,t-1])
-        m.addConstr(beliefs[1:,t] <= (prop_beliefs[:,t-1] - capture[:,t-1]))
-
-      for t in range(0,HORIZON+1):
-        for v in range(self.N):
-        # for s in range(self.searchers.M):
-          valid_searchers = []
-          for s in range(self.searchers.M):
-            if v in legal_V[t][s]:
-              valid_searchers.append(s)
-          ## Getting ERROR!
-          print(valid_searchers)
-          m.addConstr(sum(presence[t][s][v] for s in 
-                     valid_searchers) <= self.searchers.M*capture[v,t-1])
-
-
-
-      m.setObjective(discount_series@beliefs[0,:], GRB.MAXIMIZE)
-      m.optimize()
-      # print(f"Model: {m.display()}")
-      print(f"Objective value: {m.objVal}")
-      # for v in m.getVars():
-      #   print('%s %g' % (v.varName, v.x))
-
+    print("\n>> Planning routine started...\n")
     
-  def plot(self, index):
-    self.g.vs["color"]="yellow"
-    self.g.vs[self.target.position]["color"]="red"
-    for idx in self.searchers.positions:
-      self.g.vs[idx]["color"] = "green"
+    self.m.optimize()
+    if self.m.status == GRB.OPTIMAL:
+      print("Success!")
+      print(f"Objective value: {self.m.objVal}")
+      print("Capture belief across all time steps:",[b.x[0] for b in self.beliefs[0,:]])
+      # for t in range(self.HORIZON+1):
+        # print(f"Capture at t={t}")
+        # print(np.array([b.X[0] for b in self.capture[:,t]]).reshape(10,10))
 
+        # print(f"Belief at t={t}")
+        # print(np.array([b.x[0] for b in self.beliefs[1:,t]]).reshape(10,10))
+        # print(f"Prop Belief at t={t}")
+        # print(np.array([b.x[0] for b in self.prop_beliefs[:,t]]).reshape(10,10))
+    else:
+      print("Failed to optimize!")
+
+
+  def plot(self):
     visual_style = {}
     visual_style["vertex_size"] = 20
     visual_style["layout"] = self.g.layout("grid")
     visual_style["vertex_label"] = range(self.g.vcount())
-    ig.plot(self.g,
-            target=os.path.join(sys.path[0], f'path_{index}.png'), 
-            **visual_style)
+    for t in range(self.HORIZON+1):
+      self.g.vs["color"]="yellow"
+      self.g.vs[self.target.position]["color"]="red"
+      # for idx in self.searchers.positions:
+      #   self.g.vs[idx]["color"] = "green"
+      for idx in range(self.N):
+        # print(self.capture[idx,t].X[0])
+        if self.capture[idx,t].X[0]:
+          self.g.vs[idx]["color"] = "green"      
+      ig.plot(self.g,
+              target=os.path.join(sys.path[0], f'../results/path_{t}.png'), 
+              **visual_style)
 
 
 if __name__ == '__main__':
   print("\nWelcome to the Multi-robot Efficient Search Path Planning solver!\n")
-  Mespp().start()
+  mespp_object = Mespp()
+  mespp_object.start()
+  print("\nThank you!\n")
