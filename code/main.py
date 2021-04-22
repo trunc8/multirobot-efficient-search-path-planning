@@ -16,6 +16,9 @@ from searchers import Searchers
 
 
 class Mespp(Helper):
+  '''
+  Inheriting functions from Helper class in helper.py
+  '''
   def __init__(self):
     '''
     Initializing all objects and variables
@@ -48,10 +51,7 @@ class Mespp(Helper):
     # print(self.has_captured())
     self.addMILPVariables()
 
-    # print(self.m)
     self.m.update()
-    # print("\nUpdated\n")
-    # print(self.m)
     # Does updating model matter? #
 
     self.addMILPConstraints()
@@ -63,62 +63,15 @@ class Mespp(Helper):
 
   def addMILPVariables(self):
     print("\n>> Adding MILP Variables...\n")
-    ## Adding presence and transition design variables
-    for t in range(self.HORIZON+1):
-      '''
-      Time instant 0 to HORIZON
-      '''
-      # Store a list of length of m in legal_V[t]
-      self.legal_V[t] = self.g.neighborhood(self.searchers.initial_positions,
-                                            order=t)
-      # print(self.legal_V)
-      self.presence[t] = {}
-      self.transition[t] = {}
-      
-      for s in range(self.searchers.M):
-        self.presence[t][s] = {}
-        self.transition[t][s] = {}
 
-        for v in self.legal_V[t][s]:
-          # x_v^{s,t}
-          self.presence[t][s][v] = self.m.addMVar((1,), vtype=GRB.BINARY, 
-                                                  name=f'x_{v}^{s},{t}')
-        for u in self.legal_V[t][s]:
-          self.transition[t][s][u] = {}
-          if t < self.HORIZON:
-            for v in self.g.neighborhood(u, order=1):
-              # y_{uv}^{s,t}
-              self.transition[t][s][u][v] = self.m.addMVar((1,), vtype=GRB.BINARY, 
-                                                           name=f'y_{u},{v}^{s},{t}')
-          elif t == self.HORIZON:
-            # y_{uv_g}^{s,tau}
-            self.transition[t][s][u] = self.m.addMVar((1,), vtype=GRB.BINARY, 
-                                                      name=f'y_{u},vg^{s},tau')
-          else:
-            print("EXCEPTION. Exiting...")
-            sys.exit(0)
+    ## Adding presence and transition design variables
+    self.addTransitionVariables()
     
     ## Defining belief and propagated belief design variables
-    
-    # Belief starts from t=0 to HORIZON
-    # Row is a vertex (or capture belief)
-    # Column is a time instant
-    self.beliefs = self.m.addMVar((self.N+1, self.HORIZON+1), 
-                                  lb=0, ub=1, 
-                                  vtype=GRB.CONTINUOUS, 
-                                  name='beta')
-    # Prop_belief matters from t=1 to HORIZON. First column is pointless
-    # but for convenience of indexing
-    self.prop_beliefs = self.m.addMVar((self.N, self.HORIZON+1), 
-                                       lb=0, ub=1, 
-                                       vtype=GRB.CONTINUOUS, 
-                                       name='alpha')
-    # Similar to prop_belief. First column is only for easier bookkeeping
-    self.capture = self.m.addMVar((self.N, self.HORIZON+1), 
-                                  vtype=GRB.BINARY, 
-                                  name='psi')
+    self.addBeliefVariables()
 
     print("\n<< Finished adding MILP Variables\n")
+
 
   def addMILPConstraints(self):
     print("\n>> Adding MILP Constraints...\n")
@@ -143,15 +96,6 @@ class Mespp(Helper):
     self.m.setObjective(discount_series@self.beliefs[0,:], GRB.MAXIMIZE)
 
 
-  def has_captured(self):
-    '''
-    Same vertex capture for the time being
-    i.e. When searcher and target are on the same vertex
-    The searcher declares "Captured!"
-    '''
-    return self.target.position in self.searchers.positions
-
-
   def plan(self):
     print("\n>> Planning routine started...\n")
     
@@ -170,25 +114,6 @@ class Mespp(Helper):
         # print(np.array([b.x[0] for b in self.prop_beliefs[:,t]]).reshape(10,10))
     else:
       print("Failed to optimize!")
-
-
-  def plot(self):
-    visual_style = {}
-    visual_style["vertex_size"] = 20
-    visual_style["layout"] = self.g.layout("grid")
-    visual_style["vertex_label"] = range(self.g.vcount())
-    for t in range(self.HORIZON+1):
-      self.g.vs["color"]="yellow"
-      self.g.vs[self.target.position]["color"]="red"
-      # for idx in self.searchers.positions:
-      #   self.g.vs[idx]["color"] = "green"
-      for idx in range(self.N):
-        # print(self.capture[idx,t].X[0])
-        if self.capture[idx,t].X[0]:
-          self.g.vs[idx]["color"] = "green"      
-      ig.plot(self.g,
-              target=os.path.join(sys.path[0], f'../results/path_{t}.png'), 
-              **visual_style)
 
 
 if __name__ == '__main__':
