@@ -6,10 +6,10 @@ You can find my blog post [here](https://trunc8.github.io/2021/04/01/pr-mespp)
 The references used while coding this project are listed [here](references.md)
 
 ### Demo
-![t=7](results/double-searchers-moving-target/path_t=7.png){:width="700px"}  
+![t=7](results/double-searchers-moving-target/path_t=7.png)  
 Searchers(green) and target(red) just before capture
 
-![t=8](results/double-searchers-moving-target/path_t=8.png){:width="700px"}  
+![t=8](results/double-searchers-moving-target/path_t=8.png)  
 Capture event(pink)
 
 
