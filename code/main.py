@@ -6,6 +6,7 @@ from gurobipy import GRB
 
 import igraph as ig
 import numpy as np
+import random
 
 import os, sys
 import time
@@ -30,23 +31,24 @@ class Mespp(Helper):
     self.HORIZON = 10
     self.N = SIDE*SIDE
     self.g = ig.Graph.Lattice(dim=[SIDE, SIDE], circular=False)
+    self.belief_g = self.g.copy()
 
     # Creating required objects
-    target_initial_position = 45
+    TARGET_INIT_POS = 30
     self.target = Target(self.g,
                          N=self.N,
-                         initial_position=target_initial_position,
+                         initial_position=TARGET_INIT_POS,
                          motion="uniform")
     # Single searcher example
     # self.searchers = Searchers(N=self.N, M=1, 
     #                            initial_positions=np.array([90]),
-    #                            target_initial_position=target_initial_position)
+    #                            target_initial_position=TARGET_INIT_POS)
     # Two searchers example
     self.searchers = Searchers(self.g,
                                N=self.N,
                                M=2,
                                initial_positions=np.array([93,79]),
-                               target_initial_position=target_initial_position)
+                               target_initial_position=TARGET_INIT_POS)
 
     self.m = gp.Model("planner")
 
@@ -145,6 +147,10 @@ class Mespp(Helper):
 
 
 if __name__ == '__main__':
+  ## For reproducibility
+  random.seed(0)
+  np.random.seed(0)
+
   print("\nWelcome to the Multi-robot Efficient Search Path Planning solver!\n")
   mespp_object = Mespp()
   mespp_object.start()

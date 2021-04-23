@@ -176,30 +176,11 @@ class Helper:
     for idx in range(self.N):
       if self.capture[idx,t].X[0]:
         self.g.vs[idx]["color"] = "green"
-
-    # METHOD 1
-    # ig.plot(self.g,
-    #         target=os.path.join(sys.path[0], f'../results/path_t={t}.png'), 
-    #         **visual_style)
-    
-    # METHOD 2
-    # Construct the plot
-    plot = ig.Plot(os.path.join(sys.path[0], f'../results/path_t={t}.png'), 
-                   bbox=(700, 650), background="white")
-    # Create the graph and add it to the plot
-    plot.add(self.g, bbox=(20, 70, 580, 630), **visual_style)
-    # Make the plot draw itself on the Cairo surface
-    plot.redraw()
-    # Grab the surface, construct a drawing context and a TextDrawer
-    ctx = cairo.Context(plot.surface)
-    ctx.set_font_size(24)
-    drawer = TextDrawer(ctx, f"[Positions at t={t}]", halign=TextDrawer.CENTER)
-    drawer.draw_at(0, 40, width=700)
-    # Save the plot
-    plot.save()
+        if idx == self.target.position:
+          self.g.vs[idx]["color"] = "#fc03db"
 
     ## Belief Graph
-    self.g.vs["color"] = '#4287f5'
+    self.belief_g.vs["color"] = '#4287f5'
 
     capture_belief = self.beliefs[0,t].X[0]
     capture_belief = round(capture_belief, 2) # Round to 2 decimals
@@ -212,27 +193,31 @@ class Helper:
         # Alpha value defines opacity of color
         # We use it to denote how confident we think the 
         # target is situated in that vertex
-        self.g.vs[idx]["color"] = f'#ff0000{alpha:0>2x}'
-    
-    # METHOD 1
-    # ig.plot(self.g,
-    #         target=os.path.join(sys.path[0], f'../results/belief_t={t}.png'), 
-    #         **visual_style)
-    
-    # METHOD 2
+        self.belief_g.vs[idx]["color"] = f'#ff0000{alpha:0>2x}'
+
     # Construct the plot
-    plot = ig.Plot(os.path.join(sys.path[0], f'../results/belief_t={t}.png'), 
-                   bbox=(700, 650), background="white")
-    # Create the graph and add it to the plot
-    plot.add(self.g, bbox=(20, 70, 580, 630), **visual_style)
+    WIDTH = 700
+    GRAPH_WIDTH = 560
+    L = 70
+    H = 100
+    plot = ig.Plot(os.path.join(sys.path[0], f'../results/path_t={t}.png'), 
+                   bbox=(2*WIDTH, WIDTH), background="white")
+    # Add the graphs to the plot
+    plot.add(self.g,
+             bbox=(L, H, L+GRAPH_WIDTH, H+GRAPH_WIDTH),
+             **visual_style)
+    plot.add(self.belief_g, 
+             bbox=(WIDTH+L, H, WIDTH+L+GRAPH_WIDTH, H+GRAPH_WIDTH),
+             **visual_style)
     # Make the plot draw itself on the Cairo surface
     plot.redraw()
     # Grab the surface, construct a drawing context and a TextDrawer
     ctx = cairo.Context(plot.surface)
     ctx.set_font_size(24)
-    title = f"[Belief at t={t}] Max occupancy: {max_belief}, "
-    title += f"Capture: {capture_belief}"
+    title = f"[Positions and Beliefs at t={t}]\n"
+    title += f"Max occupancy belief: {max_belief}, "
+    title += f"Capture belief: {capture_belief}"
     drawer = TextDrawer(ctx, title, halign=TextDrawer.CENTER)
-    drawer.draw_at(0, 40, width=700)
+    drawer.draw_at(0, 40, width=2*WIDTH)
     # Save the plot
     plot.save()
