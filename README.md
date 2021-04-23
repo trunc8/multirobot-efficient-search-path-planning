@@ -9,6 +9,8 @@ The references used while coding this project are listed [here](references.md)
 1. [Obtain Gurobi license](https://www.gurobi.com/downloads/end-user-license-agreement-academic/). There is a free academic license which is sufficient for our needs.
 1. [Install Gurobi(for Linux)](http://abelsiqueira.github.io/blog/installing-gurobi-7-on-linux/)
 1. `git clone https://github.com/trunc8/multirobot-efficient-search-path-planning.git`
+1. `cd multirobot-efficient-search-path-planning`
+1. `pip install -r requirements.txt`
 1. `python3 code/main.py`
 
 
