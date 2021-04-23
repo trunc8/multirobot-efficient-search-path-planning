@@ -9,6 +9,7 @@
 - [Finding neigborhood](https://igraph.org/python/doc/tutorial/analysis.html#vertices-and-edges)
 - [Adding title to igraph](https://stackoverflow.com/questions/18250684/add-title-and-legend-to-igraph-plots)
 - [Adding multiple subgraphs to igraph](https://igraph.discourse.group/t/how-to-draw-multiple-subplots-on-cairo-surface/423)
+- [Copy an igraph](https://stackoverflow.com/questions/29911852/python-duplicate-a-python-igraph)
 
 ### gurobi
 - [Understanding MIP](https://www.gurobi.com/resource/mip-basics/)
