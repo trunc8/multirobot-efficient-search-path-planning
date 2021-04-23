@@ -5,6 +5,14 @@ You can find my blog post [here](https://trunc8.github.io/2021/04/01/pr-mespp)
 
 The references used while coding this project are listed [here](references.md)
 
+### Demo
+![t=7](results/double-searchers-moving-target/path_t=7.png){:width="700px"}  
+Searchers(green) and target(red) just before capture
+
+![t=8](results/double-searchers-moving-target/path_t=8.png){:width="700px"}  
+Capture event(pink)
+
+
 ### How to Run
 1. [Obtain Gurobi license](https://www.gurobi.com/downloads/end-user-license-agreement-academic/). There is a free academic license which is sufficient for our needs.
 1. [Install Gurobi(for Linux)](http://abelsiqueira.github.io/blog/installing-gurobi-7-on-linux/)
@@ -13,6 +21,7 @@ The references used while coding this project are listed [here](references.md)
 1. `pip install -r requirements.txt`
 1. `python3 code/main.py`
 
+You can find the results in the `results` directory
 
 ### Author(s)
 
