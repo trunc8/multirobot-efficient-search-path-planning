@@ -14,19 +14,29 @@ Suppress gurobi optimizer output-
 https://support.gurobi.com/hc/en-us/articles/360044784552-How-do-I-suppress-all-console-output-from-Gurobi-
 Finding neigborhood-
 https://igraph.org/python/doc/tutorial/analysis.html#vertices-and-edges
+Adding title to igraph-
+https://stackoverflow.com/questions/18250684/add-title-and-legend-to-igraph-plots
+Adding multiple subgraphs to igraph-
+https://igraph.discourse.group/t/how-to-draw-multiple-subplots-on-cairo-surface/423
+
 
 ### gurobi
 Understanding MIP-
 https://www.gurobi.com/resource/mip-basics/
+When is update model required-
+https://groups.google.com/g/gurobi/c/Lo_wnSlPBMQ
+LinExp Error on applying quicksum to matrix variables-
+https://support.gurobi.com/hc/en-us/community/posts/360075084112-Unsupported-Type-for-LinExpr-Argument
 
+### python
+Randomly choose from a list-
+https://stackoverflow.com/questions/306400/how-to-randomly-select-an-item-from-a-list
+Convert int to hexadecimal with 0 padding-
+https://stackoverflow.com/questions/2269827/how-to-convert-an-int-to-a-hex-string
 
 # Steps
 1. Obtain Gurobi license
 2. Install Gurobi (http://abelsiqueira.github.io/blog/installing-gurobi-7-on-linux/)
-
-# Referred the repo for
-- Input output
-- Motion model
 
 
 # Algorithm design decisions
@@ -41,4 +51,4 @@ Therefore, iGraph is best suited for our purpose
 
 
 # Additional comments
-1. Linear programming (LP) is in P and integer programming (IP) is NP-hard.
+1. Linear programming is P while integer programming is NP-hard.
