@@ -32,8 +32,22 @@ class Mespp(Helper):
     self.g = ig.Graph.Lattice(dim=[SIDE, SIDE], circular=False)
 
     # Creating required objects
-    self.target = Target(N=self.N)
-    self.searchers = Searchers(N=self.N, M=2)
+    target_initial_position = 45
+    self.target = Target(self.g,
+                         N=self.N,
+                         initial_position=target_initial_position,
+                         motion="uniform")
+    # Single searcher example
+    # self.searchers = Searchers(N=self.N, M=1, 
+    #                            initial_positions=np.array([90]),
+    #                            target_initial_position=target_initial_position)
+    # Two searchers example
+    self.searchers = Searchers(self.g,
+                               N=self.N,
+                               M=2,
+                               initial_positions=np.array([93,79]),
+                               target_initial_position=target_initial_position)
+
     self.m = gp.Model("planner")
 
     # Initializing MILP design variables
@@ -50,19 +64,24 @@ class Mespp(Helper):
     print("\n---------------MESPP started----------------\n")
     # print(self.has_captured())
     self.addMILPVariables()
-
     self.m.update()
-    # Does updating model matter? #
-
     self.addMILPConstraints()
     self.setMILPObjective()
+
+    
     self.plan()
-    self.plot()
+
+    for t in range(self.HORIZON+1):
+      self.plot(t)
+      self.target.updateTargetPosition()
+
     print("\n---------------Exiting----------------\n")
 
 
   def addMILPVariables(self):
     print("\n>> Adding MILP Variables...\n")
+
+    start_time = time.time()
 
     ## Adding presence and transition design variables
     self.addTransitionVariables()
@@ -70,7 +89,9 @@ class Mespp(Helper):
     ## Defining belief and propagated belief design variables
     self.addBeliefVariables()
 
-    print("\n<< Finished adding MILP Variables\n")
+    end_time = time.time()
+
+    print(f"\n<< Finished adding MILP Variables in {end_time-start_time:.2f}s\n")
 
 
   def addMILPConstraints(self):
@@ -80,13 +101,13 @@ class Mespp(Helper):
     ## Adding constraints on presence and transition 
     self.addTransitionConstraints()
 
-    print(time.time()-start_time)
+    # print(time.time()-start_time)
     
     ## Adding constraints on beliefs
     self.addBeliefConstraints()
 
     end_time = time.time()
-    print(f"\n<< Finished adding MILP Constraints in {end_time-start_time}s\n")
+    print(f"\n<< Finished adding MILP Constraints in {end_time-start_time:.2f}s\n")
 
 
   def setMILPObjective(self):
@@ -99,11 +120,14 @@ class Mespp(Helper):
   def plan(self):
     print("\n>> Planning routine started...\n")
     
+    start_time = time.time()
+
     self.m.optimize()
     if self.m.status == GRB.OPTIMAL:
       print("Success!")
-      print(f"Objective value: {self.m.objVal}")
-      print("Capture belief across all time steps:",[b.x[0] for b in self.beliefs[0,:]])
+      print(f"Objective value: {self.m.objVal:.2f}")
+      # print("Capture belief across all time steps:",
+      #       [round(b.X[0],2) for b in self.beliefs[0,:]])
       # for t in range(self.HORIZON+1):
         # print(f"Capture at t={t}")
         # print(np.array([b.X[0] for b in self.capture[:,t]]).reshape(10,10))
@@ -114,6 +138,10 @@ class Mespp(Helper):
         # print(np.array([b.x[0] for b in self.prop_beliefs[:,t]]).reshape(10,10))
     else:
       print("Failed to optimize!")
+
+    end_time = time.time()
+
+    print(f"\n<< Finished planning routine in {end_time-start_time:.2f}s\n")
 
 
 if __name__ == '__main__':

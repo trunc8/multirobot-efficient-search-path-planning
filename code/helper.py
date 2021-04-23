@@ -6,6 +6,8 @@ import igraph as ig
 import numpy as np
 import os, sys
 
+from igraph.drawing.text import TextDrawer
+import cairo
 
 class Helper:
   def addTransitionVariables(self):
@@ -160,20 +162,77 @@ class Helper:
     return self.target.position in self.searchers.positions
 
 
-  def plot(self):
+  def plot(self, t):
     visual_style = {}
     visual_style["vertex_size"] = 20
     visual_style["layout"] = self.g.layout("grid")
     visual_style["vertex_label"] = range(self.g.vcount())
-    for t in range(self.HORIZON+1):
-      self.g.vs["color"]="yellow"
-      self.g.vs[self.target.position]["color"]="red"
-      # for idx in self.searchers.positions:
-      #   self.g.vs[idx]["color"] = "green"
-      for idx in range(self.N):
-        # print(self.capture[idx,t].X[0])
-        if self.capture[idx,t].X[0]:
-          self.g.vs[idx]["color"] = "green"      
-      ig.plot(self.g,
-              target=os.path.join(sys.path[0], f'../results/path_{t}.png'), 
-              **visual_style)
+    
+    ## Presence Graph
+    self.g.vs["color"] = "yellow"
+    self.g.vs[self.target.position]["color"] = "red"
+    # for idx in self.searchers.positions:
+    #   self.g.vs[idx]["color"] = "green"
+    for idx in range(self.N):
+      if self.capture[idx,t].X[0]:
+        self.g.vs[idx]["color"] = "green"
+
+    # METHOD 1
+    # ig.plot(self.g,
+    #         target=os.path.join(sys.path[0], f'../results/path_t={t}.png'), 
+    #         **visual_style)
+    
+    # METHOD 2
+    # Construct the plot
+    plot = ig.Plot(os.path.join(sys.path[0], f'../results/path_t={t}.png'), 
+                   bbox=(700, 650), background="white")
+    # Create the graph and add it to the plot
+    plot.add(self.g, bbox=(20, 70, 580, 630), **visual_style)
+    # Make the plot draw itself on the Cairo surface
+    plot.redraw()
+    # Grab the surface, construct a drawing context and a TextDrawer
+    ctx = cairo.Context(plot.surface)
+    ctx.set_font_size(24)
+    drawer = TextDrawer(ctx, f"[Positions at t={t}]", halign=TextDrawer.CENTER)
+    drawer.draw_at(0, 40, width=700)
+    # Save the plot
+    plot.save()
+
+    ## Belief Graph
+    self.g.vs["color"] = '#4287f5'
+
+    capture_belief = self.beliefs[0,t].X[0]
+    capture_belief = round(capture_belief, 2) # Round to 2 decimals
+    capture_belief = abs(capture_belief)      # To get rid of "-0.00"
+    belief_array = np.array([round(b.X[0], 2) for b in self.beliefs[1:,t]])
+    max_belief = np.max(belief_array)
+    for idx in range(self.N):
+      if belief_array[idx] > 0:
+        alpha = int(255*belief_array[idx]/max_belief)
+        # Alpha value defines opacity of color
+        # We use it to denote how confident we think the 
+        # target is situated in that vertex
+        self.g.vs[idx]["color"] = f'#ff0000{alpha:0>2x}'
+    
+    # METHOD 1
+    # ig.plot(self.g,
+    #         target=os.path.join(sys.path[0], f'../results/belief_t={t}.png'), 
+    #         **visual_style)
+    
+    # METHOD 2
+    # Construct the plot
+    plot = ig.Plot(os.path.join(sys.path[0], f'../results/belief_t={t}.png'), 
+                   bbox=(700, 650), background="white")
+    # Create the graph and add it to the plot
+    plot.add(self.g, bbox=(20, 70, 580, 630), **visual_style)
+    # Make the plot draw itself on the Cairo surface
+    plot.redraw()
+    # Grab the surface, construct a drawing context and a TextDrawer
+    ctx = cairo.Context(plot.surface)
+    ctx.set_font_size(24)
+    title = f"[Belief at t={t}] Max occupancy: {max_belief}, "
+    title += f"Capture: {capture_belief}"
+    drawer = TextDrawer(ctx, title, halign=TextDrawer.CENTER)
+    drawer.draw_at(0, 40, width=700)
+    # Save the plot
+    plot.save()
