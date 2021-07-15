@@ -1,6 +1,8 @@
 # Multi-robot Efficient Search Path Planning
 Implementation of [MILP Models for Multi-Robot Non-Adversarial Search](https://arxiv.org/abs/2011.12480) paper
 
+*Important Note: The entire project has been built from scratch with [references](references.md) duly credited. No code from the [author's implementation](https://github.com/basfora/milp_mespp) was borrowed or used.*
+
 You can find my blog post [here](https://trunc8.github.io/2021/04/01/pr-mespp)
 
 The references used while coding this project are listed [here](references.md)
