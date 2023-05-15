@@ -1,18 +1,17 @@
 # Multi-robot Efficient Search Path Planning
-Implementation of [MILP Models for Multi-Robot Non-Adversarial Search](https://arxiv.org/abs/2011.12480) paper. No parts of the code were referenced from the author's implementation whatsoever.
+Implementation of [MILP Models for Multi-Robot Non-Adversarial Search](https://arxiv.org/abs/2011.12480) paper.
 
-*Important Note: The entire project has been built from scratch with [references](references.md) duly credited. No code from the [author's implementation](https://github.com/basfora/milp_mespp) was borrowed or used.*
+*Important Note*: No parts of the code were borrowed or used from the [author's implementation](https://github.com/basfora/milp_mespp) whatsoever. The entire project has been built from scratch with references duly credited in the [Appendix](#appendix).
 
-You can find my blog post [here](https://trunc8.github.io/2021/04/01/pr-mespp)
+You can find my blog post describing the technical details [here](https://trunc8.github.io/2021/04/01/pr-mespp).
 
-The references used while coding this project are listed in the [Appendix](#appendix).
 
 ## Demo
 ![t=7](results/double-searchers-moving-target/path_t=7.png)  
-Searchers(green) and target(red) just before capture
+*Searchers(green) and target(red) just before capture*
 
 ![t=8](results/double-searchers-moving-target/path_t=8.png)  
-Capture event(pink)
+*Capture event(pink)*
 
 
 ## How to Run
