@@ -3,7 +3,7 @@ Implementation of [MILP Models for Multi-Robot Non-Adversarial Search](https://a
 
 *Important Note*: No parts of the code were borrowed or used from the [author's implementation](https://github.com/basfora/milp_mespp) whatsoever. The entire project has been built from scratch with references duly credited in the [Appendix](#appendix).
 
-You can find my blog post describing the technical details [here](https://trunc8.github.io/2021/04/01/pr-mespp).
+You can read about the technical details underlying my implementation in my [presentation](presentation.pdf). I have expanded more on the intuition in my blog post [here](https://trunc8.github.io/2021/04/01/pr-mespp).
 
 
 ## Demo
